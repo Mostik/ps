@@ -6,11 +6,23 @@ pub fn main() !void {
 
     const allocator = gpa.allocator();
 
+    const dir = try std.fs.openDirAbsolute("/proc", .{ .iterate = true });
+
+    var it = dir.iterate();
+
     while (true) {
-        const stat: ps.ProcStat = try ps.get(allocator, std.os.linux.getpid());
+        while (try it.next()) |entity| {
+            if (std.fmt.parseInt(i32, entity.name, 10)) |value| {
+                var stat: ps.ProcStat = try ps.ProcStat.get(allocator, value);
+                defer stat.deinit();
 
-        std.debug.print("{d:.2}Mb {d} \n", .{ @as(f32, @floatFromInt(stat.vsize)) / 1024.0 / 1024.0, stat.vsize });
+                std.debug.print("{s} - ", .{stat.comm});
+                std.debug.print("{d}\n", .{stat.vsize / 1000 / 1000});
+            } else |_| {}
+        }
 
-        std.time.sleep(std.time.ns_per_s);
+        it.reset();
+
+        std.time.sleep(1);
     }
 }
